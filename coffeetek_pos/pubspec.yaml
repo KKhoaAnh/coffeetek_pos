@@ -20,6 +20,8 @@ dependencies:
   desktop_multi_window: ^0.2.0
   window_manager: ^0.5.1
   html: ^0.15.6
+  image_picker: ^1.2.0
+  http_parser: ^4.1.2
   # http hoặc dio:
 
 dev_dependencies:
@@ -29,3 +31,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/

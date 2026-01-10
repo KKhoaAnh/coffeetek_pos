@@ -2,7 +2,7 @@ class Product {
   final dynamic id;        
   final String name;
   final String categoryId;
-  final String categoryName;
+  final String? categoryName;
   final String? categoryImage;
   final String? description;
   final String? imageUrl;
@@ -49,26 +49,33 @@ class Product {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'price': price,
-      'imageUrl': imageUrl,
-    };
-  }
-
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['id'].toString(),
-      name: json['name'],
-      categoryId: json['categoryId'] ?? '',
-      categoryName: json['categoryName'] ?? '',
-      price: (json['price'] is int) 
-          ? (json['price'] as int).toDouble() 
-          : (json['price'] as double? ?? 0.0),
-      imageUrl: json['imageUrl'] ?? '',
-      isActive: json['isActive'] ?? true,
+      id: (json['product_id'] ?? '').toString(),
+      name: json['product_name'] ?? 'Tên món lỗi',
+      
+      categoryId: (json['category_id'] ?? '').toString(), 
+      categoryName: json['category_name'],
+      
+      description: json['description'],
+      imageUrl: json['image_url'],
+      
+      price: double.tryParse(json['price_value']?.toString() ?? '0') ?? 0.0,
+      hasModifiers: json['has_modifiers'] == 1 || json['has_modifiers'] == true,
+      isActive: json['is_active'] == 1 || json['is_active'] == true,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'product_id': id,
+      'product_name': name,
+      'category_id': categoryId,
+      'category_name': categoryName,
+      'description': description,
+      'image_url': imageUrl,
+      'price_value': price,
+      'is_active': isActive,
+    };
   }
 }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../view_model/auth_view_model.dart';
 import '../../../ui/home/widgets/table_screen.dart';
-
+import '../../../ui/manager/manager_dashboard_screen.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -42,11 +42,18 @@ class _LoginScreenState extends State<LoginScreen> {
     final success = await authVM.loginWithPin(_pin);
 
     if (success) {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        // MaterialPageRoute(builder: (context) => const DevDualScreenWrapper()),
-        MaterialPageRoute(builder: (context) => const TableScreen()),
-      );
+      final user = authVM.currentUser;
+      if (user != null && (user.role == 'admin' || user.role == 'manager')) {
+        Navigator.pushReplacement(
+          context, 
+          MaterialPageRoute(builder: (_) => const ManagerDashboardScreen())
+        );
+      } else {
+        Navigator.pushReplacement(
+          context, 
+          MaterialPageRoute(builder: (_) => const TableScreen())
+        );
+      }
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -49,7 +49,7 @@ class PosViewModel extends ChangeNotifier {
                 
                 dynamicCategories.add(Category(
                   id: product.categoryId, 
-                  name: product.categoryName,
+                  name: product.categoryName ?? 'Cà phê',
                   imageUrl: product.categoryImage,
                   gridCount: product.gridCount ?? 4,
                 ));

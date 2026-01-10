@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'dart:html' as html;
+import 'dart:html' as html; // Import html để dùng LocalStorage
 import 'package:http/http.dart' as http;
 import '../../../domain/models/product.dart';
 import '../../../domain/models/cart_item.dart';
@@ -61,8 +61,76 @@ class CartViewModel extends ChangeNotifier {
   String? _currentOrderStatus;
   String? get currentOrderStatus => _currentOrderStatus;
 
-  /// Fetches pending (parked) orders from the order repository and updates `_parkedOrders`.
-  /// Notifies listeners on success; logs any error encountered.
+  // [FIX] 1. THÊM CONSTRUCTOR ĐỂ LẮNG NGHE SỰ KIỆN TỪ TAB KHÁC
+  CartViewModel() {
+    // Chỉ chạy trên Web: Lắng nghe khi LocalStorage thay đổi
+    try {
+      html.window.onStorage.listen((event) {
+        if (event.key == 'cart_data' && event.newValue != null) {
+          updateFromSyncData(event.newValue);
+        }
+      });
+    } catch (e) {
+      print("Không thể khởi tạo listener storage (có thể do không phải Web): $e");
+    }
+  }
+
+  // --- LOGIC ĐỒNG BỘ MÀN HÌNH KHÁCH ---
+
+  // [FIX] 2. Cập nhật hàm sync để thêm timestamp (ép trình duyệt nhận sự kiện)
+  void _syncToSecondScreen() {
+    try {
+      // Chuyển đổi Map _items sang List để gửi đi
+      final itemList = _items.values.map((e) => e.toJson()).toList();
+
+      final syncData = {
+        'tableName': _tableName ?? '',
+        'totalAmount': totalAmount,
+        'items': itemList, // Gửi danh sách món
+        'timestamp': DateTime.now().millisecondsSinceEpoch, // [FIX] Quan trọng để trigger change
+      };
+
+      final jsonString = jsonEncode(syncData);
+      
+      // Ghi vào LocalStorage -> Tab Khách sẽ bắt được sự kiện onStorage
+      html.window.localStorage['cart_data'] = jsonString;
+    } catch (e) {
+      print("Lỗi sync: $e");
+    }
+  }
+
+  // [FIX] 3. Xử lý dữ liệu nhận được (Chạy ở Màn hình Khách)
+  double _syncedTotalAmount = 0;
+  double get syncedTotalAmount => _syncedTotalAmount;
+
+  void updateFromSyncData(dynamic jsonStringOrMap) {
+    try {
+      Map<String, dynamic> data;
+      if (jsonStringOrMap is String) {
+        data = jsonDecode(jsonStringOrMap);
+      } else {
+        data = jsonStringOrMap;
+      }
+      _tableName = data['tableName'];
+      _syncedTotalAmount = (data['totalAmount'] as num).toDouble();
+
+      if (data['items'] != null) {
+        final List<dynamic> itemsJson = data['items'];
+        // Cập nhật _cartItems để CustomerScreen có dữ liệu hiển thị
+        _cartItems = itemsJson.map((e) => CartItem.fromJson(e)).toList();
+      } else {
+        _cartItems = [];
+      }
+
+      notifyListeners(); // Báo cho UI màn hình khách vẽ lại
+    } catch (e) {
+      print("Lỗi cập nhật dữ liệu từ sync: $e");
+    }
+  }
+
+
+  // --- CÁC HÀM XỬ LÝ API VÀ LOGIC GIỎ HÀNG CŨ (GIỮ NGUYÊN) ---
+
   Future<void> fetchPendingOrders() async {
     try {
       _parkedOrders = await _orderRepository.getPendingOrders();
@@ -72,8 +140,6 @@ class CartViewModel extends ChangeNotifier {
     }
   }
 
-  /// Loads table data from the remote API and updates the `_tables` list.
-  /// Notifies listeners on successful load; logs any error encountered.
   Future<void> fetchTables() async {
     try {
       final uri = Uri.parse('${AppConstants.baseUrl}/tables');
@@ -88,8 +154,6 @@ class CartViewModel extends ChangeNotifier {
     }
   }
 
-  /// Sends a request to the server to clear the specified table, then refreshes tables.
-  /// Errors are logged but not rethrown.
   Future<void> clearTable(int tableId) async {
     try {
        final uri = Uri.parse('${AppConstants.baseUrl}/tables/$tableId/clear');
@@ -100,9 +164,6 @@ class CartViewModel extends ChangeNotifier {
     }
   }
 
-  /// Restores an existing order (by `orderId`) into the cart `_items`.
-  /// Sets current order metadata (id, code, table) and recreates `CartItem`s from order details.
-  /// Returns `true` on success or `false` if the order could not be loaded.
   Future<bool> restoreOrderToCart(String orderId) async {
     try {
       final fullOrder = await _orderRepository.getOrderById(orderId);
@@ -143,7 +204,7 @@ class CartViewModel extends ChangeNotifier {
       }
       
       notifyListeners();
-      _syncToSecondScreen();
+      _syncToSecondScreen(); // [CHECK] Đã có sync
       return true;
     } catch (e) {
       print("Lỗi khôi phục đơn: $e");
@@ -151,9 +212,6 @@ class CartViewModel extends ChangeNotifier {
     }
   }
 
-  /// Constructs an `Order` object representing the current cart state.
-  /// `userId` is set as the creator and `isPaid` controls status/payment flags.
-  /// Each `CartItem` is converted into an `OrderDetail` for the returned `Order`.
   Order buildOrderObject({required String userId, required bool isPaid}) {
       final now = DateTime.now();
       
@@ -195,9 +253,6 @@ class CartViewModel extends ChangeNotifier {
       );
     }
 
-  /// Submits the current cart as an order (create or update) using the repository.
-  /// If `isPaid` is true the cart is cleared after saving; otherwise the current order id is stored.
-  /// Returns the saved `Order` on success, or `null` on failure.
   Future<Order?> submitOrder({
     required String userId, 
     required bool isPaid,
@@ -231,6 +286,7 @@ class CartViewModel extends ChangeNotifier {
        } else {
          _currentOrderId = resultOrderId;
          notifyListeners();
+         _syncToSecondScreen(); // [CHECK] Thêm sync sau khi lưu đơn
        }
        
        fetchTables();
@@ -240,7 +296,6 @@ class CartViewModel extends ChangeNotifier {
     return null;
   }
 
-  /// Calculates the total amount of the current cart by summing each item's subtotal.
   double get totalAmount {
     var total = 0.0;
     _items.forEach((key, cartItem) {
@@ -249,23 +304,18 @@ class CartViewModel extends ChangeNotifier {
     return total;
   }
 
-    /// Sets the order type (e.g., 'DINE_IN' or 'TAKE_AWAY').
-    /// When switching to 'TAKE_AWAY' it clears table assignment.
-    void setOrderType(String type) {
+  void setOrderType(String type) {
     if (_orderType == type) return;
 
     if (type == 'TAKE_AWAY') {
-      // Trước khi chuyển sang Mang về -> Lưu lại bàn hiện tại (nếu có)
       if (_orderType == 'DINE_IN') {
         _savedTableId = _tableId;
         _savedTableName = _tableName;
       }
-      // Xóa thông tin bàn trên UI
       _tableId = null;
       _tableName = null;
       
     } else if (type == 'DINE_IN') {
-      // Khi quay lại Tại bàn -> Khôi phục bàn cũ (nếu có)
       if (_savedTableId != null) {
         _tableId = _savedTableId;
         _tableName = _savedTableName;
@@ -274,26 +324,23 @@ class CartViewModel extends ChangeNotifier {
     
     _orderType = type;
     notifyListeners();
-    _syncToSecondScreen(); // Đồng bộ ngay để màn hình khách cập nhật trạng thái
+    _syncToSecondScreen(); // [CHECK] Đã có sync
   }
 
-  /// Assigns the given table to the current order and sets the order type to 'DINE_IN'.
   void setTable(TableModel table) {
     _tableId = table.id;
     _tableName = table.name;
     setOrderType('DINE_IN');
-    _syncToSecondScreen();
+    _syncToSecondScreen(); // [CHECK] Đã có sync
     notifyListeners();
   }
 
-  /// Toggles selection mode on/off and clears any selected item keys.
   void toggleSelectionMode() {
     _isSelectionMode = !_isSelectionMode;
     _selectedKeys.clear();
     notifyListeners();
   }
 
-  /// Toggles the selection state of a cart item identified by `key`.
   void toggleItemSelection(String key) {
     if (_selectedKeys.contains(key)) {
       _selectedKeys.remove(key);
@@ -303,7 +350,6 @@ class CartViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Deletes all items currently selected (`_selectedKeys`) from the cart and exits selection mode.
   void deleteSelectedItems() {
     for (var key in _selectedKeys) {
       _items.remove(key);
@@ -311,9 +357,9 @@ class CartViewModel extends ChangeNotifier {
     _selectedKeys.clear();
     _isSelectionMode = false; 
     notifyListeners();
+    _syncToSecondScreen(); // [FIX] Thêm sync khi xóa nhiều món
   }
 
-  /// Increments the quantity of the cart item identified by `key` by 1.
   void incrementItem(String key) {
     if (_items.containsKey(key)) {
       _items.update(
@@ -323,11 +369,10 @@ class CartViewModel extends ChangeNotifier {
         ),
       );
       notifyListeners();
+      _syncToSecondScreen(); // [FIX] Thêm sync khi tăng số lượng
     }
   }
 
-  /// Adds a `product` with optional `modifiers` to the cart. If the same product+modifiers exist,
-  /// it increments the quantity; otherwise it inserts a new `CartItem`.
   void addToCart(Product product, {List<Modifier> modifiers = const []}) {
     final modifierIds = modifiers.map((m) => m.id).toList();
     modifierIds.sort();
@@ -351,11 +396,9 @@ class CartViewModel extends ChangeNotifier {
       );
     }
     notifyListeners();
-    _syncToSecondScreen();
+    _syncToSecondScreen(); // [CHECK] Đã có sync
   }
 
-  /// Updates an existing cart item (identified by `oldKey`) to use `newModifiers`.
-  /// The item is re-keyed; quantities are merged if the new key already exists.
   void updateCartItem(String oldKey, List<Modifier> newModifiers) {
     if (!_items.containsKey(oldKey)) return;
 
@@ -381,10 +424,9 @@ class CartViewModel extends ChangeNotifier {
       );
     }
     notifyListeners();
+    _syncToSecondScreen(); // [FIX] Thêm sync khi update món
   }
 
-  /// Removes a single unit from the cart item identified by `cartKey`.
-  /// If the quantity becomes zero it removes the item entirely.
   void removeSingleItem(String cartKey) {
     if (!_items.containsKey(cartKey)) return;
 
@@ -397,24 +439,21 @@ class CartViewModel extends ChangeNotifier {
       _items.remove(cartKey);
     }
     notifyListeners();
-    _syncToSecondScreen();
+    _syncToSecondScreen(); // [CHECK] Đã có sync
   }
 
-  /// Removes the entire cart row identified by `cartKey`.
   void removeCartItemRow(String cartKey) {
     _items.remove(cartKey);
     notifyListeners();
-    _syncToSecondScreen();
+    _syncToSecondScreen(); // [CHECK] Đã có sync
   }
 
-  /// Parks the given `order` (adds it to `_parkedOrders`) and clears the current cart.
   void parkOrder(Order order) {
     _parkedOrders.add(order);
     clearCart();
     notifyListeners();
   }
 
-  /// Clears the current cart and resets current order/table metadata.
   void clearCart({bool keepTable = false}) {
       _items.clear();
       _currentOrderId = null;
@@ -429,10 +468,9 @@ class CartViewModel extends ChangeNotifier {
       }
 
       notifyListeners();
-      _syncToSecondScreen();
+      _syncToSecondScreen(); // [CHECK] Đã có sync
   }
 
-  /// Starts a fresh order for the specified `table`. If a current order exists it first clears it.
   void startNewOrderForTable(TableModel table) {
     if (_currentOrderId != null) {
       clearCart();
@@ -440,8 +478,6 @@ class CartViewModel extends ChangeNotifier {
     setTable(table); 
   }
 
-  /// Loads the given `order` into the cart `_items`, reconstructing `CartItem`s from details.
-  /// Also sets table and order type, and removes the loaded order from `_parkedOrders`.
   void retrieveOrder(Order order) {
     _items.clear();
 
@@ -475,18 +511,15 @@ class CartViewModel extends ChangeNotifier {
     _parkedOrders.removeWhere((o) => o.id == order.id);
     
     notifyListeners();
+    _syncToSecondScreen(); // [FIX] Thêm sync khi nạp lại đơn chờ
   }
 
-  /// Requests a kitchen reprint by incrementing the kitchen print count on the current order.
-  /// Returns the new print count, or 0 if there is no current order.
   Future<int> requestReprintKitchen() async {
     if (_currentOrderId == null) return 0;
     return await _orderRepository.incrementKitchenPrintCount(_currentOrderId.toString());
   }
 
-  /// Builds a temporary `Order` containing only the uncommitted quantities that should be printed
-  /// in the kitchen (i.e., quantity - committedQuantity). Returns `null` if there is nothing to print.
-Order? buildKitchenPrintOrder({required String userId}) {
+  Order? buildKitchenPrintOrder({required String userId}) {
     List<OrderDetail> itemsToPrint = [];
 
     for (var cartItem in _items.values) {
@@ -502,15 +535,10 @@ Order? buildKitchenPrintOrder({required String userId}) {
           productId: cartItem.product.id.toString(),
           productName: cartItem.product.name,
           price: unitPrice,
-          
           quantity: diff,
-          
           totalLineAmount: unitPrice * diff,
-          
           modifiers: cartItem.selectedModifiers,
-          
           committedQuantity: 0, 
-          
           note: '',
         ));
       }
@@ -526,17 +554,13 @@ Order? buildKitchenPrintOrder({required String userId}) {
       status: OrderStatus.pending,
       paymentStatus: PaymentStatus.unpaid,
       totalAmount: 0,
-      
       items: itemsToPrint,
-      
       kitchenPrintCount: 0,
       tableName: _tableName ?? 'Mang về', 
       createdByUserId: userId,
     );
   }
 
-  /// Synchronizes committed quantities: copies each `_orderItems` quantity to committedQuantity,
-  /// updates all cart items' committedQuantity to their current quantity, then replaces `_orderItems`.
   void syncCommittedQuantities() {
     Map<String, OrderDetail> updatedItems = {};
     
@@ -555,60 +579,8 @@ Order? buildKitchenPrintOrder({required String userId}) {
     notifyListeners();
   }
 
-  void _syncToSecondScreen() {
-    try {
-      final syncData = {
-        'tableName': _tableName ?? '',
-        'totalAmount': totalAmount,
-        'items': _items.values.map((e) => e.toJson()).toList(),
-      };
-
-      final jsonString = jsonEncode(syncData);
-      
-      html.window.localStorage['cart_data'] = jsonString;
-      
-      // print("Đã sync dữ liệu: $jsonString");
-    } catch (e) {
-      print("Lỗi sync: $e");
-    }
-  }
-
-  double _syncedTotalAmount = 0;
-  double get syncedTotalAmount => _syncedTotalAmount;
-
-  void updateFromSyncData(dynamic jsonStringOrMap) {
-    try {
-      // Xử lý đầu vào: Có thể là String (từ localStorage) hoặc Map (đã decode ở main)
-      Map<String, dynamic> data;
-      if (jsonStringOrMap is String) {
-        data = jsonDecode(jsonStringOrMap);
-      } else {
-        data = jsonStringOrMap;
-      }
-
-      _tableName = data['tableName'];
-
-      _syncedTotalAmount = (data['totalAmount'] as num).toDouble();
-
-      if (data['items'] != null) {
-        final List<dynamic> itemsJson = data['items'];
-        _cartItems = itemsJson.map((e) => CartItem.fromJson(e)).toList();
-      } else {
-        _cartItems = [];
-      }
-
-      notifyListeners(); 
-      
-    } catch (e) {
-      print("Lỗi cập nhật dữ liệu từ sync: $e");
-    }
-  }
-
-  // ... (Các code cũ giữ nguyên)
-
   // --- LOGIC CHUYỂN / GỘP BÀN ---
 
-  /// Chuyển đơn hàng từ bàn hiện tại sang bàn mới (Trống)
   Future<bool> moveTable(int targetTableId) async {
     try {
       if (_currentOrderId == null) return false;
@@ -624,7 +596,6 @@ Order? buildKitchenPrintOrder({required String userId}) {
       );
 
       if (response.statusCode == 200) {
-        // Chuyển thành công -> Xóa cart hiện tại để reload hoặc navigate về sơ đồ
         return true;
       }
       return false;
@@ -634,7 +605,6 @@ Order? buildKitchenPrintOrder({required String userId}) {
     }
   }
 
-  /// Gộp đơn hàng từ bàn hiện tại vào bàn đích (Đang có khách)
   Future<bool> mergeTable(int targetTableId) async {
     try {
       if (_currentOrderId == null) return false;
@@ -644,8 +614,8 @@ Order? buildKitchenPrintOrder({required String userId}) {
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'sourceOrderId': _currentOrderId, // Đơn hiện tại (sẽ bị hủy/gộp)
-          'targetTableId': targetTableId,   // Bàn đích (đơn này sẽ nhận thêm món)
+          'sourceOrderId': _currentOrderId,
+          'targetTableId': targetTableId, 
         }),
       );
 

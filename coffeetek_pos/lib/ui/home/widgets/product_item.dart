@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../../../domain/models/product.dart';
 import 'modifier_selection_dialog.dart';
 import '../view_model/cart_view_model.dart';
+import '../../../utils/constants.dart';
+
 
 class ProductItem extends StatelessWidget {
   final Product product;
@@ -54,19 +56,7 @@ class ProductItem extends StatelessWidget {
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                    ? Image.network(
-                        product.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (ctx, _, __) => Container(
-                          color: Colors.grey[200],
-                          child: const Icon(Icons.coffee, size: 40, color: Colors.brown),
-                        ),
-                      )
-                    : Container(
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.coffee, size: 40, color: Colors.brown),
-                      ),
+                child: _buildProductImage(product.imageUrl),
               ),
             ),
             
@@ -100,6 +90,34 @@ class ProductItem extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Hàm xử lý ảnh thông minh cho ProductItem
+  Widget _buildProductImage(String? filename) {
+    if (filename == null || filename.isEmpty) {
+      return Container(
+        color: Colors.grey[200],
+        child: const Icon(Icons.coffee, size: 40, color: Colors.brown),
+      );
+    }
+
+    // Ghép Base URL của Server vào tên file
+    // AppConstants.baseUrl ví dụ là 'http://localhost:3000/api' -> cần cắt bớt '/api' nếu folder uploads nằm ở root
+    // GIẢ SỬ AppConstants.baseUrl = 'http://localhost:3000/api'
+    // Thì đường dẫn ảnh là 'http://localhost:3000/uploads/$filename'
+    
+    // Cách xử lý URL an toàn:
+    String baseUrl = AppConstants.baseUrl.replaceAll('/api', ''); // Bỏ đuôi /api
+    String fullUrl = '$baseUrl/uploads/$filename';
+
+    return Image.network(
+      fullUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (ctx, _, __) => Container(
+        color: Colors.grey[200],
+        child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
       ),
     );
   }

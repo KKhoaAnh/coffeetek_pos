@@ -30,243 +30,270 @@ class _PosScreenState extends State<PosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    
-    return Scaffold(
-      appBar: AppBar(
-        leading: widget.isBackButtonEnabled 
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-                onPressed: () {
-                   Navigator.pop(context); 
-                },
-              )
-            : null,
-            
-        title: Consumer<CartViewModel>(
-          builder: (_, cart, __) => Text("CoffeeTek POS - ${cart.tableName ?? 'Mang về'}", style: const TextStyle(color: Colors.white)),
-        ),
-        backgroundColor: Colors.brown,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.screen_share_outlined, color: Colors.white),
-            tooltip: 'Mở màn hình khách',
-            onPressed: () {
-              final baseUrl = html.window.location.href.split('#')[0];
-              html.window.open('$baseUrl#/customer', 'customer_display_window', 'width=1000,height=800,menubar=no,toolbar=no');
-            },
-          ),
-          Consumer<CartViewModel>(
-            builder: (_, cartVM, __) => Stack(
-              alignment: Alignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.receipt_long, color: Colors.white),
-                  tooltip: 'Đơn tạm tính',
-                  onPressed: () {
-                    Provider.of<CartViewModel>(context, listen: false).fetchPendingOrders();
-                    _showParkedOrdersDialog(context);
-                  },
-                ),
-                if (cartVM.parkedOrders.isNotEmpty)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                      child: Text(
-                        '${cartVM.parkedOrders.length}',
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        bool isMobile = constraints.maxWidth < 900;
+
+        return Scaffold(
+          appBar: AppBar(
+            leading: widget.isBackButtonEnabled 
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
                   )
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => Provider.of<PosViewModel>(context, listen: false).loadProducts(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            tooltip: 'Đăng xuất',
-            onPressed: () {
-              Provider.of<AuthViewModel>(context, listen: false).logout();
-            },
-          ),
-        ],
-      ),
-      body: Row(
-        children: [
-          Expanded(
-            flex: 7,
-            child: Container(
-              color: Colors.grey[100],
-              padding: const EdgeInsets.all(10),
-              child: Consumer<PosViewModel>(
-                builder: (context, viewModel, child) {
-                  final currentCategory = viewModel.categories.firstWhere(
-                    (c) => c.id == viewModel.selectedCategoryId,
-                    orElse: () => Category(id: 'ALL', name: 'Tất cả', gridCount: 0),
-                  );
-
-                  if (viewModel.isLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  
-                  if (viewModel.errorMessage.isNotEmpty) {
-                    return Center(child: Text(viewModel.errorMessage, style: const TextStyle(color: Colors.red)));
-                  }
-
-                  final List<Color> _categoryColors = [
-                  const Color(0xFFE3F2FD), // Xanh dương nhạt
-                  const Color(0xFFFFF3E0), // Cam nhạt
-                  const Color(0xFFF3E5F5), // Tím nhạt
-                  const Color(0xFFE8F5E9), // Xanh lá nhạt
-                  const Color(0xFFFFEBEE), // Hồng nhạt
-                  const Color(0xFFFFF8E1), // Vàng nhạt
-                  ];
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: 110,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: viewModel.categories.length,
-                          itemBuilder: (ctx, i) {
-                            final cat = viewModel.categories[i];
-                            final isSelected = cat.id == viewModel.selectedCategoryId;
-                            
-                            final Color baseColor = _categoryColors[i % _categoryColors.length];
-
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 15, bottom: 5),
-                              child: InkWell(
-                                onTap: () => viewModel.selectCategory(cat.id),
-                                borderRadius: BorderRadius.circular(16),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut,
-                                  width: 110,
-                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? Colors.brown[500] : baseColor,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: isSelected 
-                                        ? Border.all(color: Colors.brown[600]!, width: 2)
-                                        : Border.all(color: Colors.transparent, width: 2),
-                                    boxShadow: isSelected 
-                                        ? [
-                                            BoxShadow(
-                                              color: Colors.brown.withOpacity(0.4),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 4)
-                                            )
-                                          ]
-                                        : [],
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      AnimatedScale(
-                                        scale: isSelected ? 1.1 : 1.0,
-                                        duration: const Duration(milliseconds: 300),
-                                        child: cat.imageUrl != null && cat.imageUrl!.isNotEmpty
-                                            ? Image.network(
-                                                cat.imageUrl!,
-                                                height: 40,
-                                                width: 40,
-                                                fit: BoxFit.contain,
-                                                errorBuilder: (_,__,___) => Icon(
-                                                  Icons.local_cafe, 
-                                                  size: 40, 
-                                                  color: isSelected ? Colors.white70 : Colors.brown[300]
-                                                ),
-                                              )
-                                            : Icon(
-                                                Icons.category, 
-                                                size: 40, 
-                                                color: isSelected ? Colors.white70 : Colors.brown[300]
-                                              ),
-                                      ),
-                                      
-                                      const SizedBox(height: 8),
-
-                                      Text(
-                                        cat.name,
-                                        textAlign: TextAlign.center,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: isSelected ? Colors.white : Colors.brown[900],
-                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 10),
-
-                      Expanded(
-                        child: viewModel.filteredProducts.isEmpty
-                            ? Center(child: Text("Không có món nào", style: TextStyle(color: Colors.grey[600])))
-                            : LayoutBuilder(
-                                builder: (context, constraints) {
-                                  double minItemWidth = 160; 
-                                  int responsiveCount = (constraints.maxWidth / minItemWidth).floor();
-                                  if (responsiveCount < 2) responsiveCount = 2;
-
-                                  int finalCrossAxisCount;
-                                  
-                                  if (viewModel.selectedCategoryId == 'ALL') {
-                                    finalCrossAxisCount = responsiveCount;
-                                  } else {
-                                    finalCrossAxisCount = currentCategory.gridCount > 0 
-                                        ? currentCategory.gridCount 
-                                        : responsiveCount;
-                                  }
-
-                                  return GridView.builder(
-                                    padding: const EdgeInsets.only(bottom: 80),
-                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: finalCrossAxisCount,
-                                      childAspectRatio: 0.75,
-                                      crossAxisSpacing: 10,
-                                      mainAxisSpacing: 10,
-                                    ),
-                                    itemCount: viewModel.filteredProducts.length,
-                                    itemBuilder: (ctx, i) {
-                                      return ProductItem(product: viewModel.filteredProducts[i]);
-                                    },
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  );
-                },
+                : null,
+                
+            title: Consumer<CartViewModel>(
+              builder: (_, cart, __) => Text(
+                isMobile ? (cart.tableName ?? 'Mang về') : "CoffeeTek POS - ${cart.tableName ?? 'Mang về'}", 
+                style: const TextStyle(color: Colors.white)
               ),
             ),
+            backgroundColor: Colors.brown,
+            elevation: 0,
+            
+            actions: isMobile 
+                ? [_buildMobileMenuActions(context)]
+                : [
+                    IconButton(
+                      icon: const Icon(Icons.screen_share_outlined, color: Colors.white),
+                      tooltip: 'Mở màn hình khách',
+                      onPressed: _openCustomerScreen,
+                    ),
+                    Consumer<CartViewModel>(
+                      builder: (_, cartVM, __) => Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.receipt_long, color: Colors.white),
+                            tooltip: 'Đơn tạm tính',
+                            onPressed: () {
+                              Provider.of<CartViewModel>(context, listen: false).fetchPendingOrders();
+                              _showParkedOrdersDialog(context);
+                            },
+                          ),
+                          if (cartVM.parkedOrders.isNotEmpty)
+                            Positioned(
+                              right: 8, top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+                                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                child: Text('${cartVM.parkedOrders.length}', style: const TextStyle(color: Colors.white, fontSize: 10), textAlign: TextAlign.center),
+                              ),
+                            )
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      onPressed: () => Provider.of<PosViewModel>(context, listen: false).loadProducts(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.logout, color: Colors.white),
+                      tooltip: 'Đăng xuất',
+                      onPressed: () => Provider.of<AuthViewModel>(context, listen: false).logout(),
+                    ),
+                  ],
+          ),
+          
+          body: Row(
+            children: [
+              Expanded(
+                flex: 7,
+                child: Container(
+                  color: Colors.grey[100],
+                  padding: const EdgeInsets.all(10),
+                  child: Consumer<PosViewModel>(
+                    builder: (context, viewModel, child) {
+                      final currentCategory = viewModel.categories.firstWhere(
+                        (c) => c.id == viewModel.selectedCategoryId,
+                        orElse: () => Category(id: 'ALL', name: 'Tất cả', gridCount: 0),
+                      );
+
+                      if (viewModel.isLoading) return const Center(child: CircularProgressIndicator());
+                      if (viewModel.errorMessage.isNotEmpty) return Center(child: Text(viewModel.errorMessage, style: const TextStyle(color: Colors.red)));
+
+                      final List<Color> _categoryColors = [
+                        const Color(0xFFE3F2FD), const Color(0xFFFFF3E0), const Color(0xFFF3E5F5),
+                        const Color(0xFFE8F5E9), const Color(0xFFFFEBEE), const Color(0xFFFFF8E1),
+                      ];
+                      double catHeight = isMobile ? 90 : 110; 
+                      double catWidth = isMobile ? 90 : 110;
+                      double iconSize = isMobile ? 32 : 40;
+                      double fontSize = isMobile ? 12 : 14;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            height: catHeight,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: viewModel.categories.length,
+                              itemBuilder: (ctx, i) {
+                                final cat = viewModel.categories[i];
+                                final isSelected = cat.id == viewModel.selectedCategoryId;
+                                final Color baseColor = _categoryColors[i % _categoryColors.length];
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 15, bottom: 5),
+                                  child: InkWell(
+                                    onTap: () => viewModel.selectCategory(cat.id),
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 300),
+                                      width: catWidth, // <--- Chiều rộng thay đổi
+                                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8), // Giảm padding dọc chút
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? Colors.brown[500] : baseColor,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: isSelected 
+                                            ? Border.all(color: Colors.brown[600]!, width: 2) 
+                                            : Border.all(color: Colors.transparent, width: 2),
+                                        boxShadow: isSelected 
+                                            ? [BoxShadow(color: Colors.brown.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))] 
+                                            : [],
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          // Ảnh / Icon cũng cần co giãn
+                                          Builder(
+                                            builder: (context) {
+                                              if (cat.imageUrl == null || cat.imageUrl!.isEmpty) {
+                                                return Icon(Icons.category, size: iconSize, color: isSelected ? Colors.white70 : Colors.brown[300]);
+                                              }
+                                              
+                                              if (cat.imageUrl!.startsWith('../assets/')) {
+                                                return Image.asset(
+                                                  cat.imageUrl!,
+                                                  height: iconSize, width: iconSize, fit: BoxFit.contain,
+                                                  errorBuilder: (_,__,___) => Icon(Icons.local_cafe, size: iconSize, color: isSelected ? Colors.white70 : Colors.brown[300]),
+                                                );
+                                              }
+
+                                              return Image.network(
+                                                  cat.imageUrl!, 
+                                                  height: iconSize, width: iconSize, fit: BoxFit.contain, 
+                                                  errorBuilder: (_,__,___) => Icon(Icons.local_cafe, size: iconSize, color: isSelected ? Colors.white70 : Colors.brown[300])
+                                                );
+                                            }
+                                          ),
+                                          
+                                          const SizedBox(height: 6), // Giảm khoảng cách
+                                          
+                                          Text(
+                                            cat.name, 
+                                            textAlign: TextAlign.center, 
+                                            maxLines: 2, 
+                                            overflow: TextOverflow.ellipsis, 
+                                            style: TextStyle(
+                                              color: isSelected ? Colors.white : Colors.brown[900], 
+                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, 
+                                              fontSize: fontSize // <--- Font chữ thay đổi
+                                            )
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 10),
+
+                          Expanded(
+                            child: viewModel.filteredProducts.isEmpty
+                                ? Center(child: Text("Không có món nào", style: TextStyle(color: Colors.grey[600])))
+                                : LayoutBuilder(
+                                    builder: (context, boxConstraints) {
+                                      double minItemWidth = 160; 
+                                      int responsiveCount = (boxConstraints.maxWidth / minItemWidth).floor();
+                                      if (responsiveCount < 2) responsiveCount = 2; // Tối thiểu 2 cột
+
+                                      int finalCrossAxisCount;
+                                      if (viewModel.selectedCategoryId == 'ALL') {
+                                        finalCrossAxisCount = responsiveCount;
+                                      } else {
+                                        finalCrossAxisCount = currentCategory.gridCount > 0 
+                                            ? currentCategory.gridCount 
+                                            : responsiveCount;
+                                      }
+
+                                      return GridView.builder(
+                                        padding: EdgeInsets.only(bottom: isMobile ? 80 : 20),
+                                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: finalCrossAxisCount,
+                                          childAspectRatio: 0.75,
+                                          crossAxisSpacing: 10,
+                                          mainAxisSpacing: 10,
+                                        ),
+                                        itemCount: viewModel.filteredProducts.length,
+                                        itemBuilder: (ctx, i) {
+                                          return ProductItem(product: viewModel.filteredProducts[i]);
+                                        },
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              if (!isMobile)
+                const Expanded(
+                  flex: 3,
+                  child: CartSection(),
+                ),
+            ],
           ),
 
-          const Expanded(
-            flex: 3,
-            child: CartSection(),
-          ),
-        ],
-      ),
+          floatingActionButton: isMobile ? Consumer<CartViewModel>(
+            builder: (ctx, cartVM, child) {
+               if (cartVM.items.isEmpty) return const SizedBox.shrink();
+               
+               return FloatingActionButton.extended(
+                 backgroundColor: Colors.brown,
+                 icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                 label: Text(
+                   NumberFormat.currency(locale: 'vi', symbol: 'đ').format(cartVM.totalAmount),
+                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+                 ),
+                 onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => Container(
+                        height: MediaQuery.of(context).size.height * 0.85,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.symmetric(vertical: 10),
+                              width: 40, height: 4,
+                              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                            ),
+                            const Expanded(child: CartSection()),
+                          ],
+                        ),
+                      ),
+                    );
+                 },
+               );
+            }
+          ) : null,
+        );
+      },
     );
   }
 
@@ -340,6 +367,32 @@ class _PosScreenState extends State<PosScreen> {
           },
         );
       },
+    );
+  }
+
+  void _openCustomerScreen() {
+     final baseUrl = html.window.location.href.split('#')[0];
+     html.window.open('$baseUrl#/customer', 'customer_display_window', 'width=1000,height=800,menubar=no,toolbar=no');
+  }
+
+  Widget _buildMobileMenuActions(BuildContext context) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert, color: Colors.white),
+      onSelected: (val) {
+        if (val == 'logout') Provider.of<AuthViewModel>(context, listen: false).logout();
+        if (val == 'refresh') Provider.of<PosViewModel>(context, listen: false).loadProducts();
+        if (val == 'customer') _openCustomerScreen();
+        if (val == 'parked') {
+           Provider.of<CartViewModel>(context, listen: false).fetchPendingOrders();
+           _showParkedOrdersDialog(context);
+        }
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(value: 'parked', child: Text('Đơn tạm tính')),
+        const PopupMenuItem<String>(value: 'customer', child: Text('Màn hình khách')),
+        const PopupMenuItem<String>(value: 'refresh', child: Text('Tải lại món')),
+        const PopupMenuItem<String>(value: 'logout', child: Text('Đăng xuất')),
+      ],
     );
   }
 }

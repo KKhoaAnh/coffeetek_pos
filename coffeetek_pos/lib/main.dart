@@ -10,6 +10,7 @@ import 'ui/home/view_model/pos_view_model.dart';
 import 'ui/home/view_model/cart_view_model.dart';
 import 'ui/home/widgets/table_screen.dart';
 import 'ui/customer_display/customer_screen.dart';
+import 'ui/manager/manager_dashboard_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,7 +49,11 @@ class CoffeeTekApp extends StatelessWidget {
         home: Consumer<AuthViewModel>(
           builder: (context, authVM, _) {
             if (authVM.isAuthenticated) {
-              return const TableScreen();
+              final user = authVM.currentUser;
+                if (user != null && (user.role == 'admin' || user.role == 'manager')) {
+                return const ManagerDashboardScreen();
+              }
+                return const TableScreen();
             }
             return const LoginScreen();
           },

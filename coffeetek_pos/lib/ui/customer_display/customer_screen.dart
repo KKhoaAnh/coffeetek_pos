@@ -23,34 +23,68 @@ class _CustomerScreenState extends State<CustomerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Row(
-        children: [
-          Expanded(
-            flex: 6,
-            child: Consumer<CartViewModel>(
-              builder: (context, cartVM, child) {
-                if (cartVM.cartItems.isNotEmpty) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (_scrollController.hasClients) {
-                      _scrollController.animateTo(
-                        _scrollController.position.maxScrollExtent,
-                        duration: const Duration(milliseconds: 500),
-                        curve: Curves.easeOut,
-                      );
-                    }
-                  });
-                }
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          bool isPortrait = constraints.maxWidth < 800;
 
-                return _buildOrderDetailsSection(context, cartVM);
-              },
-            ),
-          ),
-
-          Expanded(
-            flex: 4,
-            child: _buildAdsSection(),
-          ),
-        ],
+          if (isPortrait) {
+            return Column(
+              children: [
+                Expanded(
+                  flex: 4, 
+                  child: _buildAdsSection(),
+                ),
+                Expanded(
+                  flex: 6,
+                  child: Consumer<CartViewModel>(
+                    builder: (context, cartVM, child) {
+                      if (cartVM.cartItems.isNotEmpty) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (_scrollController.hasClients) {
+                            _scrollController.animateTo(
+                              _scrollController.position.maxScrollExtent,
+                              duration: const Duration(milliseconds: 500),
+                              curve: Curves.easeOut,
+                            );
+                          }
+                        });
+                      }
+                      return _buildOrderDetailsSection(context, cartVM);
+                    },
+                  ),
+                ),
+              ],
+            );
+          } else {
+            return Row(
+              children: [
+                Expanded(
+                  flex: 6,
+                  child: Consumer<CartViewModel>(
+                    builder: (context, cartVM, child) {
+                      if (cartVM.cartItems.isNotEmpty) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (_scrollController.hasClients) {
+                            _scrollController.animateTo(
+                              _scrollController.position.maxScrollExtent,
+                              duration: const Duration(milliseconds: 500),
+                              curve: Curves.easeOut,
+                            );
+                          }
+                        });
+                      }
+                      return _buildOrderDetailsSection(context, cartVM);
+                    },
+                  ),
+                ),
+                Expanded(
+                  flex: 4,
+                  child: _buildAdsSection(),
+                ),
+              ],
+            );
+          }
+        },
       ),
     );
   }
