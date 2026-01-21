@@ -7,6 +7,7 @@ import 'menu_management_screen.dart';
 import 'table_management_screen.dart';
 import '../auth/widgets/login_screen.dart';
 import 'report_screen.dart';
+import 'shift_management_screen.dart';
 // import 'table_management_screen.dart';
 
 class ManagerDashboardScreen extends StatelessWidget {
@@ -137,7 +138,7 @@ class ManagerDashboardScreen extends StatelessWidget {
                         _buildMenuCard(
                           context, "MỞ CA", Icons.storefront, 
                           Colors.teal, 
-                          () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tính năng đang phát triển")))
+                          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShiftManagementScreen()))
                         ),
                         _buildMenuCard(
                           context, "POS", Icons.point_of_sale, 

@@ -250,4 +250,82 @@ class PrinterService {
       ),
     );
   }
+
+  Future<void> printShiftReport(Map<String, dynamic> data) async {
+    final font = await _getFont();
+    final fontBold = await _getBoldFont();
+    final doc = pw.Document();
+
+    final currency = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
+    final timeFmt = DateFormat('HH:mm dd/MM/yyyy');
+
+    // Parse dữ liệu an toàn
+    final startTime = DateTime.parse(data['start_time'].toString()).toLocal();
+    final endTime = DateTime.parse(data['end_time'].toString()).toLocal();
+    
+    final double initial = double.tryParse(data['initial_float'].toString()) ?? 0;
+    final double sales = double.tryParse(data['total_cash_sales'].toString()) ?? 0;
+    final double expected = double.tryParse(data['expected_cash'].toString()) ?? 0;
+    final double actual = double.tryParse(data['actual_cash'].toString()) ?? 0;
+    final double diff = double.tryParse(data['difference'].toString()) ?? 0;
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.roll80,
+        margin: const pw.EdgeInsets.all(10),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Center(child: pw.Text('PHIẾU KẾT CA (Z-REPORT)', style: pw.TextStyle(font: fontBold, fontSize: 16))),
+              pw.Divider(),
+              
+              _buildRow('Nhân viên:', data['user_name'] ?? '', font, 10),
+              _buildRow('Mở ca:', timeFmt.format(startTime), font, 10),
+              _buildRow('Đóng ca:', timeFmt.format(endTime), font, 10),
+              pw.Divider(borderStyle: pw.BorderStyle.dashed),
+
+              _buildRow('1. Tiền đầu ca:', currency.format(initial), font, 12),
+              _buildRow('2. Doanh thu TM:', currency.format(sales), font, 12),
+              pw.Divider(),
+              _buildRow('TỔNG HỆ THỐNG:', currency.format(expected), fontBold, 12),
+              pw.SizedBox(height: 5),
+              _buildRow('THỰC TẾ:', currency.format(actual), fontBold, 14),
+              
+              pw.SizedBox(height: 10),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Chênh lệch:', style: pw.TextStyle(font: fontBold, fontSize: 12)),
+                  pw.Text(
+                    currency.format(diff), 
+                    style: pw.TextStyle(
+                      font: fontBold, 
+                      fontSize: 12, 
+                      color: diff == 0 ? PdfColors.black : (diff < 0 ? PdfColors.red : PdfColors.blue)
+                    )
+                  ),
+                ],
+              ),
+              
+              if (data['note'] != null && data['note'].toString().isNotEmpty) ...[
+                pw.SizedBox(height: 10),
+                pw.Text('Ghi chú:', style: pw.TextStyle(font: fontBold, fontSize: 10)),
+                pw.Text(data['note'].toString(), style: pw.TextStyle(font: font, fontSize: 10, fontStyle: pw.FontStyle.italic)),
+              ],
+              
+              pw.SizedBox(height: 20),
+              pw.Center(child: pw.Text('Chữ ký nhân viên', style: pw.TextStyle(font: font, fontSize: 10))),
+              pw.SizedBox(height: 30),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => doc.save(),
+      name: 'Z-Report'
+    );
+  }
 }

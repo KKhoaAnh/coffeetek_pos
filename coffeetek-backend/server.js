@@ -12,6 +12,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const modifierRoutes = require('./routes/modifierRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const shiftRoutes = require('./routes/shiftRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -28,6 +29,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/modifiers', modifierRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/shifts', shiftRoutes);
 
 app.get('/', (req, res) => {
     res.send('CoffeeTek POS API is running...');
