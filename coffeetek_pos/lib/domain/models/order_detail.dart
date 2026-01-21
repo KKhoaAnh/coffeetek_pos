@@ -32,11 +32,7 @@ class OrderDetail {
       'quantity': quantity,
       'total_line_amount': totalLineAmount,
       'note': note,
-      'modifiers': modifiers.map((m) => {
-        'id': m.id,
-        'name': m.name,
-        'extraPrice': m.extraPrice
-      }).toList(),
+      'modifiers': modifiers.map((m) => m.toJson()).toList(),
     };
   }
 

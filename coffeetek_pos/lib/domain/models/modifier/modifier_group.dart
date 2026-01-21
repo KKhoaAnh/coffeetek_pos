@@ -1,14 +1,10 @@
-// lib/domain/models/modifier_group.dart
-
-import 'modifier.dart'; // Import đúng file ở Bước 1
+import 'modifier.dart';
 
 class ModifierGroup {
   final String id;
   final String name;
   final bool isMultiSelect;
   final bool isRequired;
-  
-  // [SỬA LẠI]: Dùng List<Modifier> thay vì ModifierItem
   final List<Modifier> modifiers; 
 
   ModifierGroup({
@@ -22,8 +18,9 @@ class ModifierGroup {
   factory ModifierGroup.fromJson(Map<String, dynamic> json) {
     var list = json['modifiers'] as List? ?? [];
     
-    // Parse sang Modifier
-    List<Modifier> modifierList = list.map((i) => Modifier.fromJson(i)).toList();
+    List<Modifier> modifierList = list.map((i) {
+       return Modifier.fromJson(i);
+    }).toList();
 
     return ModifierGroup(
       id: json['group_id'].toString(),

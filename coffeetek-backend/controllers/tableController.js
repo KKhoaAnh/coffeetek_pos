@@ -2,9 +2,24 @@ const db = require('../config/db');
 
 exports.getTables = async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM tables');
+        // [LOGIC MỚI] Kiểm tra tham số active_only từ URL
+        // Nếu client gọi: /api/tables?active_only=true -> Chỉ lấy bàn Active
+        // Nếu client gọi: /api/tables -> Lấy tất cả (Mặc định)
+        const activeOnly = req.query.active_only === 'true';
+
+        let sql = 'SELECT * FROM tables';
+        
+        if (activeOnly) {
+            sql += ' WHERE is_active = 1';
+        }
+        
+        // Sắp xếp theo tên bàn cho dễ nhìn
+        // sql += ' ORDER BY table_name ASC'; 
+
+        const [rows] = await db.query(sql);
         res.status(200).json(rows);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Lỗi lấy danh sách bàn' });
     }
 };
@@ -213,5 +228,66 @@ exports.updateTablePositions = async (req, res) => {
         res.status(500).json({ message: 'Lỗi cập nhật sơ đồ: ' + error.message });
     } finally {
         connection.release();
+    }
+};
+
+// [THÊM MỚI] Tạo bàn
+// --- [BỔ SUNG] CÁC HÀM QUẢN LÝ BÀN CƠ BẢN ---
+
+// 1. Tạo bàn mới
+exports.createTable = async (req, res) => {
+    try {
+        const { table_name, shape, color, is_active } = req.body;
+        
+        // Mặc định tạo ra ở vị trí 0,0 nếu không truyền pos_x, pos_y
+        await db.query(
+            "INSERT INTO tables (table_name, shape, color, is_active, status, pos_x, pos_y) VALUES (?, ?, ?, ?, 'AVAILABLE', 0, 0)",
+            [
+                table_name, 
+                shape || 'SQUARE', 
+                color || '#FFFFFF',
+                is_active !== undefined ? is_active : 1 // Mặc định là Active
+            ]
+        );
+        res.status(201).json({ message: 'Tạo bàn thành công' });
+    } catch (error) {
+        console.error("Lỗi tạo bàn:", error);
+        res.status(500).json({ message: 'Lỗi tạo bàn' });
+    }
+};
+
+// 2. Cập nhật thông tin bàn (Tên, Màu, Hình dáng, Trạng thái Active)
+exports.updateTableInfo = async (req, res) => {
+    try {
+        const tableId = req.params.id;
+        const { table_name, is_active, shape, color } = req.body;
+        
+        await db.query(
+            "UPDATE tables SET table_name = ?, is_active = ?, shape = ?, color = ? WHERE table_id = ?",
+            [table_name, is_active ? 1 : 0, shape, color, tableId]
+        );
+        res.status(200).json({ message: 'Cập nhật thành công' });
+    } catch (error) {
+        console.error("Lỗi cập nhật bàn:", error);
+        res.status(500).json({ message: 'Lỗi cập nhật bàn' });
+    }
+};
+
+// 3. Xóa bàn (Chỉ cho xóa khi bàn trống)
+exports.deleteTable = async (req, res) => {
+    try {
+        const tableId = req.params.id;
+        
+        // Kiểm tra xem bàn có đang có khách không
+        const [check] = await db.query("SELECT status FROM tables WHERE table_id = ?", [tableId]);
+        if (check.length > 0 && check[0].status === 'OCCUPIED') {
+            return res.status(400).json({ message: 'Không thể xóa bàn đang có khách!' });
+        }
+
+        await db.query("DELETE FROM tables WHERE table_id = ?", [tableId]);
+        res.status(200).json({ message: 'Đã xóa bàn' });
+    } catch (error) {
+        console.error("Lỗi xóa bàn:", error);
+        res.status(500).json({ message: 'Lỗi xóa bàn' });
     }
 };

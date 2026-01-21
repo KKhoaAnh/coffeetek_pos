@@ -3,12 +3,8 @@ class Modifier {
   final String name;
   final double extraPrice;
   final String groupId;
-  
-  // [QUAN TRỌNG] Cờ cho phép nhập liệu
-  final bool allowInput; 
-  
-  // Dữ liệu nhập từ bàn phím (Note)
-  final String? userInput; 
+  final bool allowInput;
+  final String? userInput;
 
   Modifier({
     required this.id,
@@ -26,31 +22,12 @@ class Modifier {
       extraPrice: double.tryParse((json['extra_price'] ?? json['price']).toString()) ?? 0.0,
       groupId: (json['group_id'] ?? '').toString(),
       
-      // [FIX] Phải ánh xạ đúng key từ Backend gửi về
-      // Backend gửi 'is_input_required', Model hứng vào 'allowInput'
-      allowInput: (json['is_input_required'] == 1 || json['is_input_required'] == true),
+      allowInput: json['is_input_required'] == true || json['is_input_required'] == 1,
       
       userInput: json['user_input'],
     );
   }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'modifier_id': id,
-      'modifier_name': name,
-      'extra_price': extraPrice,
-      'group_id': groupId,
-      'is_input_required': allowInput, 
-      'user_input': userInput,
-      
-      // Các trường legacy hỗ trợ Cart cũ
-      'id': id,
-      'name': name,
-      'price': extraPrice,
-    };
-  }
   
-  // Hàm copyWith để cập nhật trạng thái khi nhập liệu
   Modifier copyWith({
     String? id,
     String? name,
@@ -67,5 +44,18 @@ class Modifier {
       allowInput: allowInput ?? this.allowInput,
       userInput: userInput ?? this.userInput,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'extraPrice': extraPrice,
+      'userInput': userInput,
+      'modifier_id': id,
+      'modifier_name': name,
+      'group_id': groupId,
+      'is_input_required': allowInput,
+    };
   }
 }

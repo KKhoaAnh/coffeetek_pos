@@ -8,7 +8,7 @@ import '../../domain/models/modifier/modifier_group.dart';
 import '../../data/model/modifier_api_model.dart';
 
 class ProductRepositoryImpl implements ProductRepository {
-  
+  final String _baseUrl = '${AppConstants.baseUrl}/products';
   @override
   Future<List<Product>> getProducts() async {
     try {
@@ -35,23 +35,17 @@ class ProductRepositoryImpl implements ProductRepository {
   @override
   Future<List<ModifierGroup>> getProductModifiers(String productId) async {
     try {
-      final uri = Uri.parse('${AppConstants.baseUrl}/products/$productId/modifiers');
-      print('GET Modifiers: $uri');
-
-      final response = await http.get(uri);
+      final response = await http.get(Uri.parse('$_baseUrl/$productId/modifiers'));
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = json.decode(response.body);
-        
-        return jsonList.map((json) {
-          return ModifierGroupApiModel.fromJson(json).toDomain();
+        final List<dynamic> data = jsonDecode(response.body);
+
+        return data.map((json) {
+          return ModifierGroup.fromJson(json);
         }).toList();
-      } else {
-        print('API Error: ${response.statusCode} - ${response.body}');
-        return [];
       }
+      return [];
     } catch (e) {
-      print('Exception fetching modifiers: $e');
       return [];
     }
   }

@@ -6,7 +6,7 @@ import '../../domain/models/table_model.dart';
 class TableService {
   Future<List<TableModel>> getTables() async {
     try {
-      final response = await http.get(Uri.parse('${AppConstants.baseUrl}/tables'));
+      final response = await http.get(Uri.parse('${AppConstants.baseUrl}/tables?active_only=true'));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);

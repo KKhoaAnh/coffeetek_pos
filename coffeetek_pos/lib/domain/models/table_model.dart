@@ -7,7 +7,7 @@ class TableModel {
   final String name;
   final String status;
   final int? currentOrderId;
-
+  final bool isActive;
   double x;
   double y;
   double width;
@@ -20,6 +20,7 @@ class TableModel {
     required this.name, 
     required this.status, 
     this.currentOrderId,
+    this.isActive = true,
     this.x = 0.0, 
     this.y = 0.0, 
     this.width = 0.15, 
@@ -51,7 +52,7 @@ class TableModel {
       name: json['table_name'],
       status: json['status'],
       currentOrderId: json['current_order_id'],
-      
+      isActive: (json['is_active'] == 1 || json['is_active'] == true),
       x: (json['pos_x'] as num?)?.toDouble() ?? 0.0,
       y: (json['pos_y'] as num?)?.toDouble() ?? 0.0,
       

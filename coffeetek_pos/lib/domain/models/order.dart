@@ -9,15 +9,16 @@ class Order {
   final String? tableName;    
   final OrderStatus status;     
   final PaymentStatus paymentStatus;
-  final double totalAmount;
+    final double totalAmount;
   final double discountAmount;
   final double taxAmount;
   final String? note;
-
   final DateTime createdDate;
   final String createdByUserId;
   final List<OrderDetail> items;
   final int kitchenPrintCount;
+  final String discountType;
+  final double finalAmount;
 
   Order({
     required this.id,
@@ -35,6 +36,8 @@ class Order {
     required this.createdByUserId,
     required this.items,
     this.kitchenPrintCount = 0,
+    this.discountType = 'NONE',
+    this.finalAmount = 0,
   });
 
   Order copyWith({
@@ -51,6 +54,9 @@ class Order {
     List<OrderDetail>? items,
     String? note,
     int? kitchenPrintCount,
+    double? discountAmount,
+    String? discountType,
+    double? finalAmount,
   }) {
     return Order(
       id: id ?? this.id,
@@ -66,6 +72,10 @@ class Order {
       items: items ?? this.items,
       note: note ?? this.note,
       kitchenPrintCount: kitchenPrintCount ?? this.kitchenPrintCount,
+      // [THÊM]
+      discountAmount: discountAmount ?? this.discountAmount,
+      discountType: discountType ?? this.discountType,
+      finalAmount: finalAmount ?? this.finalAmount,
     );
   }
 
@@ -83,70 +93,56 @@ class Order {
       'note': note,
       'created_by_user_id': createdByUserId,
       'items': items.map((item) => item.toJson()).toList(),
-      // Thêm gửi kitchen_print_count lên nếu cần (thường backend tự quản lý, nhưng để đây cũng không sao)
       'kitchen_print_count': kitchenPrintCount, 
+      'discount_type': discountType,
+      'final_amount': finalAmount,
     };
   }
 
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
-      // [FIX]: Chuyển về string rồi mới parse để tránh lỗi int vs String
       id: int.tryParse(json['order_id']?.toString() ?? '0') ?? 0,
-      
       orderCode: json['order_code']?.toString() ?? '',
-      
-      orderType: (json['order_type'] == 'TAKE_AWAY') 
-          ? OrderType.takeAway 
-          : OrderType.dineIn,
-      
-      // [FIX]: Kiểm tra null và tryParse cho tableId
-      tableId: json['table_id'] != null 
-          ? int.tryParse(json['table_id'].toString()) 
-          : null,
-      
+      orderType: (json['order_type'] == 'TAKE_AWAY') ? OrderType.takeAway : OrderType.dineIn,
+      tableId: json['table_id'] != null ? int.tryParse(json['table_id'].toString()) : null,
       tableName: json['table_name']?.toString(),
-      
       status: _parseStatus(json['status']?.toString()),
-      
       paymentStatus: _parsePaymentStatus(json['payment_status']?.toString()),
       
-      // [FIX]: tryParse an toàn cho số thực
       totalAmount: double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
       discountAmount: double.tryParse(json['discount_amount']?.toString() ?? '0') ?? 0.0,
       taxAmount: double.tryParse(json['tax_amount']?.toString() ?? '0') ?? 0.0,
-      
       note: json['note']?.toString(),
-      
       createdDate: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
-      
       createdByUserId: json['created_by_user_id']?.toString() ?? '',
-      
       items: (json['items'] as List<dynamic>?)
           ?.map((item) => OrderDetail.fromJson(item))
           .toList() ?? [],
-
-      // [QUAN TRỌNG]: Đọc kitchen_print_count an toàn, mặc định là 0
       kitchenPrintCount: int.tryParse(json['kitchen_print_count']?.toString() ?? '0') ?? 0,
+      discountType: json['discount_type']?.toString() ?? 'NONE',
+      finalAmount: double.tryParse(json['final_amount']?.toString() ?? '0') ?? 0.0,
     );
   }
 
   factory Order.fromJsonSummary(Map<String, dynamic> json) {
-    return Order(
-      id: int.tryParse(json['order_id']?.toString() ?? '0') ?? 0,
-      orderCode: json['order_code']?.toString() ?? '',
-      orderType: OrderType.dineIn, // Mặc định hoặc cần logic thêm
-      tableId: json['table_id'] != null ? int.tryParse(json['table_id'].toString()) : null,
-      tableName: json['table_name']?.toString(),
-      status: _parseStatus(json['status']?.toString()), // Parse status thay vì fix cứng
-      paymentStatus: _parsePaymentStatus(json['payment_status']?.toString()), // Parse payment thay vì fix cứng
-      totalAmount: double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
-      createdDate: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
-      createdByUserId: '',
-      items: [],
-      kitchenPrintCount: int.tryParse(json['kitchen_print_count']?.toString() ?? '0') ?? 0,
-    );
+     return Order(
+        id: int.tryParse(json['order_id']?.toString() ?? '0') ?? 0,
+        orderCode: json['order_code']?.toString() ?? '',
+        orderType: OrderType.dineIn,
+        tableId: json['table_id'] != null ? int.tryParse(json['table_id'].toString()) : null,
+        tableName: json['table_name']?.toString(),
+        status: _parseStatus(json['status']?.toString()),
+        paymentStatus: _parsePaymentStatus(json['payment_status']?.toString()),
+        totalAmount: double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
+        createdDate: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+        createdByUserId: '',
+        items: [],
+        kitchenPrintCount: int.tryParse(json['kitchen_print_count']?.toString() ?? '0') ?? 0, 
+        discountAmount: double.tryParse(json['discount_amount']?.toString() ?? '0') ?? 0.0,
+        finalAmount: double.tryParse(json['final_amount']?.toString() ?? '0') ?? 0.0,
+     );
   }
-
+  
   static OrderStatus _parseStatus(String? status) {
     if (status == 'COMPLETED') return OrderStatus.completed;
     if (status == 'CANCELLED') return OrderStatus.cancelled;

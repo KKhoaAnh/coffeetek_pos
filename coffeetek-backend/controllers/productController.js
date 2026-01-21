@@ -101,7 +101,12 @@ exports.getProductModifiers = async (req, res) => {
                 modifier_name: row.modifier_name,
                 extra_price: parseFloat(row.extra_price),
                 // [QUAN TRỌNG] Map cờ này để App hiển thị ô nhập
-                is_input_required: row.is_input_required == 1
+                is_input_required: (
+                    row.is_input_required === 1 || 
+                    row.is_input_required === true || 
+                    (Buffer.isBuffer(row.is_input_required) && row.is_input_required[0] === 1)
+                ),
+                group_id: groupId
             });
         });
 

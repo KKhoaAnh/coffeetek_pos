@@ -556,27 +556,36 @@ class CartSection extends StatelessWidget {
         context: context,
         builder: (ctx) => PaymentDialog(
           totalAmount: cartVM.totalAmount,
-          onConfirm: (paymentMethod, amountReceived) async {
-            
+            onConfirm: (paymentMethod, amountReceived, discountAmount, discountType) async {
+        
             bool isImmediateOrder = cartVM.currentOrderId == null;
 
+            // [SỬA LỖI] Truyền thêm thông tin giảm giá vào hàm submitOrder
             final completedOrder = await cartVM.submitOrder(
               userId: currentUserId, 
               isPaid: true,
               paymentMethod: paymentMethod,
-              amountReceived: amountReceived
+              amountReceived: amountReceived,
+              discountAmount: discountAmount, // <--- Mới
+              discountType: discountType      // <--- Mới
             );
 
             if (completedOrder != null) {
               final printer = PrinterService();
               
+              // In bếp (nếu là đơn mới và ăn tại bàn)
               if (cartVM.orderType == 'DINE_IN' && isImmediateOrder) {
-                 await printer.printKitchen(completedOrder, reprintCount: 0);
-                 
-                 await Future.delayed(const Duration(milliseconds: 2000));
+                  await printer.printKitchen(completedOrder, reprintCount: 0);
+                  await Future.delayed(const Duration(milliseconds: 2000));
               }
 
-              await printer.printBill(completedOrder, isProvisional: false, amountReceived: amountReceived);
+              // In hóa đơn thanh toán
+              await printer.printBill(
+                completedOrder, 
+                isProvisional: false, 
+                amountReceived: amountReceived
+                // Lưu ý: completedOrder trả về từ API nên đã chứa thông tin discount
+              );
               
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Thanh toán thành công!')),

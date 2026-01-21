@@ -4,6 +4,9 @@ import '../../ui/auth/view_model/auth_view_model.dart';
 import '../home/widgets/table_screen.dart';
 import 'account_management_screen.dart';
 import 'menu_management_screen.dart';
+import 'table_management_screen.dart';
+import '../auth/widgets/login_screen.dart';
+import 'report_screen.dart';
 // import 'table_management_screen.dart';
 
 class ManagerDashboardScreen extends StatelessWidget {
@@ -144,7 +147,7 @@ class ManagerDashboardScreen extends StatelessWidget {
                         _buildMenuCard(
                           context, "BÁO CÁO", Icons.bar_chart_rounded, 
                           Colors.indigo, 
-                          () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tính năng đang phát triển")))
+                          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportScreen()))
                         ),
 
                         // HÀNG 2: QUẢN LÝ (TRỌNG TÂM)
@@ -161,7 +164,7 @@ class ManagerDashboardScreen extends StatelessWidget {
                         _buildMenuCard(
                           context, "BÀN", Icons.table_bar, 
                           Colors.deepPurple, 
-                          () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Vào quản lý Bàn")))
+                          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TableManagementScreen()))
                         ),
 
                         // HÀNG 3: HỆ THỐNG
@@ -176,25 +179,57 @@ class ManagerDashboardScreen extends StatelessWidget {
                           () {}
                         ),
                         _buildMenuCard(
-                          context, "THOÁT", Icons.logout, 
+                          context, 
+                          "THOÁT", 
+                          Icons.logout, 
                           Colors.red[700]!, 
-                          () => authVM.logout(),
-                          isDestructive: true
+                          () {
+                            // Hiện hộp thoại xác nhận trước
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text("Đăng xuất"),
+                                content: const Text("Bạn có chắc chắn muốn thoát khỏi hệ thống?"),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx), // Đóng dialog
+                                    child: const Text("Hủy"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () async {
+                                      Navigator.pop(ctx); // Đóng dialog trước
+                                      
+                                      // Thực hiện quy trình đăng xuất chuẩn
+                                      await Provider.of<AuthViewModel>(context, listen: false).logout();
+                                      
+                                      if (context.mounted) {
+                                        Navigator.of(context).pushAndRemoveUntil(
+                                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                          (route) => false
+                                        );
+                                      }
+                                    },
+                                    child: const Text("Đồng ý", style: TextStyle(color: Colors.red)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
                         ),
                       ],
                     ),
                   ),
                   
                   // Footer Version
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Text(
-                        "CoffeeTek Manager v1.0 - Developed by Khoa Manager", 
-                        style: TextStyle(color: Colors.brown.withOpacity(0.5), fontSize: 11, fontStyle: FontStyle.italic)
-                      ),
-                    ),
-                  )
+                  // Center(
+                  //   child: Padding(
+                  //     padding: const EdgeInsets.only(top: 10),
+                  //     child: Text(
+                  //       "CoffeeTek Manager v1.0 - Developed by Khoa Manager", 
+                  //       style: TextStyle(color: Colors.brown.withOpacity(0.5), fontSize: 11, fontStyle: FontStyle.italic)
+                  //     ),
+                  //   ),
+                  // )
                 ],
               ),
             );
@@ -237,14 +272,16 @@ class ManagerDashboardScreen extends StatelessWidget {
             children: [
               // Icon Container
               Container(
-                padding: const EdgeInsets.all(12),
+                // Giảm padding từ 12 xuống 5 hoặc 0 để tiết kiệm diện tích cho Icon
+                padding: const EdgeInsets.all(10), 
+                
                 decoration: BoxDecoration(
                   color: isDestructive ? Colors.red[50] : accentColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   icon, 
-                  size: 28, 
+                  size: 80, // Kích thước to mong muốn
                   color: isDestructive ? Colors.red : accentColor
                 ),
               ),

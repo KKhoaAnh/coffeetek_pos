@@ -142,7 +142,7 @@ class CartViewModel extends ChangeNotifier {
 
   Future<void> fetchTables() async {
     try {
-      final uri = Uri.parse('${AppConstants.baseUrl}/tables');
+      final uri = Uri.parse('${AppConstants.baseUrl}/tables?active_only=true');
       final response = await http.get(uri);
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = json.decode(response.body);
@@ -212,7 +212,13 @@ class CartViewModel extends ChangeNotifier {
     }
   }
 
-  Order buildOrderObject({required String userId, required bool isPaid}) {
+  Order buildOrderObject({
+    required String userId, 
+    required bool isPaid,
+    // [MỚI] Thêm tham số đầu vào
+    double discountAmount = 0,
+    String discountType = 'NONE',
+  }) {
       final now = DateTime.now();
       
       final orderId = _currentOrderId != null ? int.parse(_currentOrderId!) : now.millisecondsSinceEpoch;
@@ -232,6 +238,9 @@ class CartViewModel extends ChangeNotifier {
         ));
       });
 
+      // Tính tổng tiền cuối cùng
+      double finalAmount = totalAmount - discountAmount;
+
       return Order(
         id: orderId,
         orderCode: orderCode,
@@ -242,8 +251,14 @@ class CartViewModel extends ChangeNotifier {
         status: isPaid ? OrderStatus.completed : OrderStatus.pending,
         paymentStatus: isPaid ? PaymentStatus.paid : PaymentStatus.unpaid,
         
-        totalAmount: totalAmount,
-        discountAmount: 0,
+        totalAmount: totalAmount, // Tổng tiền hàng (chưa giảm)
+        
+        // [MỚI] Truyền thông tin giảm giá vào Model Order
+        // Lưu ý: Bạn cần chắc chắn file domain/models/order.dart đã có các trường này
+        discountAmount: discountAmount,
+        discountType: discountType, // <-- Bỏ comment dòng này nếu Model Order đã có trường discountType
+        finalAmount: finalAmount,   // <-- Bỏ comment dòng này nếu Model Order đã có trường finalAmount
+        
         taxAmount: 0,
         note: '',
         
@@ -258,9 +273,11 @@ class CartViewModel extends ChangeNotifier {
     required bool isPaid,
     String paymentMethod = 'CASH',
     double amountReceived = 0,
+    double discountAmount = 0,
+    String discountType = 'NONE',
   }) async {
     
-    final order = buildOrderObject(userId: userId, isPaid: isPaid);
+    final order = buildOrderObject(userId: userId, isPaid: isPaid, discountAmount: discountAmount, discountType: discountType);
     
     String? resultOrderId;
 

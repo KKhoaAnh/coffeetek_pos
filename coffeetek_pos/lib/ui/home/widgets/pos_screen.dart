@@ -7,6 +7,7 @@ import 'cart_section.dart';
 import '../../auth/view_model/auth_view_model.dart';
 import '../view_model/cart_view_model.dart';
 import '../../../domain/models/category.dart';
+import '../../auth/widgets/login_screen.dart';
 import 'dart:html' as html;
 
 class PosScreen extends StatefulWidget {
@@ -92,7 +93,34 @@ class _PosScreenState extends State<PosScreen> {
                     IconButton(
                       icon: const Icon(Icons.logout, color: Colors.white),
                       tooltip: 'Đăng xuất',
-                      onPressed: () => Provider.of<AuthViewModel>(context, listen: false).logout(),
+                      onPressed: () async {
+                        // 1. Xác nhận (Optional - cho chuyên nghiệp)
+                        bool confirm = await showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text("Đăng xuất"),
+                            content: const Text("Bạn có chắc chắn muốn thoát?"),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Hủy")),
+                              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Đồng ý", style: TextStyle(color: Colors.red))),
+                            ],
+                          )
+                        ) ?? false;
+
+                        if (!confirm) return;
+
+                        // 2. Xử lý Logout
+                        if (!context.mounted) return;
+                        await Provider.of<AuthViewModel>(context, listen: false).logout();
+
+                        // 3. Chuyển màn hình
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                            (Route<dynamic> route) => false,
+                          );
+                        }
+                      },
                     ),
                   ],
           ),
@@ -378,13 +406,33 @@ class _PosScreenState extends State<PosScreen> {
   Widget _buildMobileMenuActions(BuildContext context) {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert, color: Colors.white),
-      onSelected: (val) {
-        if (val == 'logout') Provider.of<AuthViewModel>(context, listen: false).logout();
+      // [CẬP NHẬT] Thêm async để chờ logout xong mới chuyển màn hình
+      onSelected: (val) async {
+        // Sửa lại đoạn logic này:
+        if (val == 'logout') {
+          // 1. Gọi hàm logout
+          try {
+            await Provider.of<AuthViewModel>(context, listen: false).logout();
+          } catch(e) {
+            print("Lỗi logout backend: $e");
+            // Dù lỗi backend vẫn cho thoát ra ngoài UI
+          }
+
+          // 2. [QUAN TRỌNG] Đặt lệnh chuyển màn hình RA NGOÀI try/catch
+          // Để dù thành công hay thất bại đều chuyển về Login
+          if (context.mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const LoginScreen()), 
+              (Route<dynamic> route) => false, 
+            );
+          }
+        }
+
         if (val == 'refresh') Provider.of<PosViewModel>(context, listen: false).loadProducts();
         if (val == 'customer') _openCustomerScreen();
         if (val == 'parked') {
-           Provider.of<CartViewModel>(context, listen: false).fetchPendingOrders();
-           _showParkedOrdersDialog(context);
+          Provider.of<CartViewModel>(context, listen: false).fetchPendingOrders();
+          _showParkedOrdersDialog(context);
         }
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[

@@ -48,7 +48,6 @@ class CartItem {
       'product': product.toJson(),
       'quantity': quantity,
       'selectedModifiers': selectedModifiers?.map((m) => m.toJson()).toList(),
-      // ...
     };
   }
 

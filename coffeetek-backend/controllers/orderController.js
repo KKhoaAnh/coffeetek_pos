@@ -60,11 +60,14 @@ exports.createOrder = async (req, res) => {
                         mod.id,
                         mod.name,
                         mod.extraPrice,
-                        1
+                        1,
+                        mod.userInput || mod.note || null
                     ]);
 
                     await connection.query(
-                        `INSERT INTO order_modifier_details (order_detail_id, modifier_id, modifier_name, price, quantity) VALUES ?`,
+                        `INSERT INTO order_modifier_details 
+                        (order_detail_id, modifier_id, modifier_name, price, quantity, modifier_note) 
+                        VALUES ?`,
                         [modifierValues]
                     );
                 }
@@ -132,7 +135,13 @@ exports.getOrderById = async (req, res) => {
         
         for (const item of itemRows) {
             const [modRows] = await db.query(
-                'SELECT modifier_id as id, modifier_name as name, price as extraPrice FROM order_modifier_details WHERE order_detail_id = ?', 
+                `SELECT 
+                    modifier_id as id, 
+                    modifier_name as name, 
+                    price as extraPrice, 
+                    modifier_note as userInput
+                 FROM order_modifier_details 
+                 WHERE order_detail_id = ?`, 
                 [item.order_detail_id]
             );
             
@@ -281,10 +290,13 @@ exports.updateOrder = async (req, res) => {
                         mod.id.toString(),
                         mod.name,
                         parseFloat(mod.extraPrice),
-                        1
+                        1,
+                        mod.userInput || mod.note || null
                     ]);
                     await connection.query(
-                        `INSERT INTO order_modifier_details (order_detail_id, modifier_id, modifier_name, price, quantity) VALUES ?`,
+                        `INSERT INTO order_modifier_details 
+                        (order_detail_id, modifier_id, modifier_name, price, quantity, modifier_note) 
+                        VALUES ?`,
                         [modifierValues]
                     );
                 }
